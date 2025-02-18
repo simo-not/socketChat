@@ -23,10 +23,17 @@ class t extends Thread{
             PrintWriter output = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in))) {
                 System.out.println("Connesso al server su " + serverAddress + ":" + port);
-                while(true){
-                System.out.print("Inserisci un messaggio: ");
+                System.out.print("Inserisci il nome utente che verrà memorizzato: ");
                 String messaggio = userInput.readLine();
                 output.println(messaggio);
+                while(true){
+                    System.out.print("inserire il nome dell'utente al quale si vuole inoltrare il messaggio: ");
+                    String nomeUtentePerMessaggio = userInput.readLine();
+                    System.out.print("inserire il corpo del messaggio da inoltrare a "+nomeUtentePerMessaggio+":");
+                    String testo = userInput.readLine();
+                    String inoltro=nomeUtentePerMessaggio+"-"+testo;
+                    output.println(inoltro);
+                    
                 }
                 
             } catch (IOException e) {
