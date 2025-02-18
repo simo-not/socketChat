@@ -17,7 +17,7 @@ class t extends Thread{
     @Override
     public void run() {
         String serverAddress = "localhost"; 
-        int port = 12345; 
+        int port = 13356; 
             try (Socket socket = new Socket(serverAddress, port);
             BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             PrintWriter output = new PrintWriter(socket.getOutputStream(), true);
@@ -26,6 +26,16 @@ class t extends Thread{
                 System.out.print("Inserisci il nome utente che verrà memorizzato: ");
                 String messaggio = userInput.readLine();
                 output.println(messaggio);
+                new Thread(() -> {
+                try {
+                    String risposta;
+                    while ((risposta = input.readLine()) != null) {
+                        System.out.println("Messaggio ricevuto: " + risposta);
+                    }
+                } catch (IOException e) {
+                    System.out.println("Errore nella lettura dei messaggi: " + e.getMessage());
+                }
+            }).start();
                 while(true){
                     System.out.print("inserire il nome dell'utente al quale si vuole inoltrare il messaggio: ");
                     String nomeUtentePerMessaggio = userInput.readLine();
