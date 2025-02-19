@@ -4,52 +4,53 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
-public class basicuser{
-    public static void main(String[] args)  {
-        for(int i=0;i<1;i++){
-            Thread t= new Thread(new t());
-            t.start();
-        }
+public class basicuser {
+    public static void main(String[] args) {
+        Thread clientThread = new Thread(new ClientRunnable());
+        clientThread.start();
     }
 }
 
-class t extends Thread{
+class ClientRunnable extends  Thread {
     @Override
     public void run() {
-        String serverAddress = "localhost"; 
-        int port = 13356; 
-            try (Socket socket = new Socket(serverAddress, port);
-            BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            PrintWriter output = new PrintWriter(socket.getOutputStream(), true);
-            BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in))) {
-                System.out.println("Connesso al server su " + serverAddress + ":" + port);
-                System.out.print("Inserisci il nome utente che verrà memorizzato: ");
-                String messaggio = userInput.readLine();
-                output.println(messaggio);
-                new Thread(() -> {
+        String serverAddress = "localhost";
+        int port = 13356;
+        try (Socket socket = new Socket(serverAddress, port);
+             BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+             PrintWriter output = new PrintWriter(socket.getOutputStream(), true);
+             BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in))) {
+
+            System.out.println("Connesso al server su " + serverAddress + ":" + port);
+            System.out.print("Inserisci il nome utente che verrà memorizzato: ");
+            String username = userInput.readLine();
+            output.println(username);
+
+            // Thread per ricevere messaggi dal server
+            new Thread(() -> {
                 try {
                     String risposta;
                     while ((risposta = input.readLine()) != null) {
-                        System.out.println("Messaggio ricevuto: " + risposta);
+                        System.out.println("\n" + risposta);
+                        System.out.print(">>> ");
                     }
                 } catch (IOException e) {
                     System.out.println("Errore nella lettura dei messaggi: " + e.getMessage());
                 }
             }).start();
-                while(true){
-                    System.out.print("inserire il nome dell'utente al quale si vuole inoltrare il messaggio: ");
-                    String nomeUtentePerMessaggio = userInput.readLine();
-                    System.out.print("inserire il corpo del messaggio da inoltrare a "+nomeUtentePerMessaggio+":");
-                    String testo = userInput.readLine();
-                    String inoltro=nomeUtentePerMessaggio+"-"+testo;
-                    output.println(inoltro);
-                    
-                }
-                
-            } catch (IOException e) {
-                System.out.println("Errore nel client: " + e.getMessage());
+
+            // Ciclo per inviare messaggi
+            while (true) {
+                System.out.print("Inserire il nome dell'utente a cui inviare il messaggio: ");
+                String destinatario = userInput.readLine();
+                System.out.print("Inserire il corpo del messaggio da inoltrare a " + destinatario + ": ");
+                String corpo = userInput.readLine();
+                String messaggio = destinatario + "-" + corpo;
+                output.println(messaggio);
             }
-        
+
+        } catch (IOException e) {
+            System.out.println("Errore nel client: " + e.getMessage());
+        }
     }
 }
-

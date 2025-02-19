@@ -1,82 +1,87 @@
-
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
 
-public class basicserver{
-    public static ArrayList<Thread> threads= new ArrayList<>();
-        public static void main(String[] args) throws Exception{
-        Integer numeroConnesso=0;
-        int port=13356;
-        ServerSocket serversock=new ServerSocket(port);
+public class basicserver {
+    // Mappa globale per tenere traccia degli utenti connessi: username -> GestioneMessaggi
+    public static ConcurrentHashMap<String, GestioneMessaggi> utentiConnessi = new ConcurrentHashMap<>();
 
-        System.out.println("server avviato! "+serversock.getInetAddress()+" porta: "+serversock.getLocalPort());
+    public static void main(String[] args) throws Exception {
+        int port = 13356;
+        ServerSocket serverSock = new ServerSocket(port);
+
+        System.out.println("Server avviato su " + serverSock.getInetAddress() + " porta: " + serverSock.getLocalPort());
         while (true) {
-            Socket clientSocket= serversock.accept();
-            System.out.println("connessione accettata da "+clientSocket.getPort());
-            Thread t= new Thread(new GestioneMessaggi(clientSocket));
-            threads.add(t);
-            t.start();
+            Socket clientSocket = serverSock.accept();
+            System.out.println("Connessione accettata da " + clientSocket.getPort());
+            GestioneMessaggi gm = new GestioneMessaggi(clientSocket);
+            gm.start();
         }
     }
-
 }
 
-class GestioneMessaggi extends Thread{
-    // porta/ip
-    public TreeMap<Integer,String> utentiRegistrati= new TreeMap<Integer,String>(); 
-    
-    //porta/nome univoco e testo in un array di stringhe
-    public TreeMap<String,Integer> referenzeMessaggi= new TreeMap<String,Integer>(); 
-
+class GestioneMessaggi extends Thread {
     private Socket clientSocket;
-    public GestioneMessaggi(Socket serv){
-        this.clientSocket=serv;
+    private PrintWriter output;
+
+    public GestioneMessaggi(Socket socket) {
+        this.clientSocket = socket;
     }
+
     @Override
     public void run() {
-        try{
-            BufferedReader input= new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-            String nome = input.readLine();
-            System.out.println("nome: "+nome);
-            utentiRegistrati.put(clientSocket.getPort(), nome);
-            
-            System.out.println("connsessione eseguita "+clientSocket.getInetAddress()+" porta: "+clientSocket.getPort());
-            while (true) { 
-                String message = input.readLine();//questo messaggio dovrà essere formattato come NomeUtenteACuiInoltrareIlMessaggio-Corpomessaggio
-                System.out.println("messaggio ricevuto: "+message);
-                String[] nomeECorpo=message.split("-");//posizione 0 il nome posizione 1 il messaggio
-                for(Thread t : basicserver.threads){
-                    if (t instanceof GestioneMessaggi) {
-                        GestioneMessaggi ut = (GestioneMessaggi) t;
-                        for (Integer porta : ut.getUtentiRegistrati().keySet()) {
-                            if (ut.getUtentiRegistrati().get(porta).equals(nomeECorpo[0])) { // Cerca destinatario
-                                PrintWriter output = new PrintWriter(ut.getsocket().getOutputStream(), true);
-                                output.println("Messaggio da " + utentiRegistrati.get(clientSocket.getPort()) + ": " + nomeECorpo[1]);
-                                break;
-                            }
-                        }
-                    }
+        try {
+            BufferedReader input = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+            output = new PrintWriter(clientSocket.getOutputStream(), true);
+
+            // Il primo messaggio è il nome utente
+            String username = input.readLine();
+            if (username == null || username.trim().isEmpty()) {
+                System.out.println("Username non valido. Chiusura connessione.");
+                clientSocket.close();
+                return;
+            }
+            System.out.println("Utente connesso: " + username);
+            basicserver.utentiConnessi.put(username, this);
+
+            // Ascolta continuamente i messaggi
+            String message;
+            while ((message = input.readLine()) != null) {
+                String[] parts = message.split("-", 2);
+                if (parts.length != 2) {
+                    output.println("Formato del messaggio non corretto. Usa: destinatario-messaggio");
+                    continue;
+                }
+                String destinatario = parts[0];
+                String corpo = parts[1];
+                
+                GestioneMessaggi destinatarioThread = basicserver.utentiConnessi.get(destinatario);
+                if (destinatarioThread != null) {
+                    destinatarioThread.sendMessage("Messaggio da " + username + ": " + corpo);
+                } else {
+                    output.println("Utente destinatario '" + destinatario + "' non trovato!");
                 }
             }
-        }catch(Exception ex){
+        } catch (Exception ex) {
+            System.out.println("Errore: " + ex.getMessage());
+        } finally {
+            basicserver.utentiConnessi.values().remove(this);
+            try {
+                if (!clientSocket.isClosed()) {
+                    clientSocket.close();
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
         }
     }
-    public  TreeMap<Integer, String> getUtentiRegistrati() {
-        return utentiRegistrati;
-    }
-    public TreeMap<String, Integer> getReferenzeMessaggi() {
-        return referenzeMessaggi;
-    }
 
-    public Socket getsocket(){
-        return clientSocket;
+    public void sendMessage(String msg) {
+        if (output != null) {
+            output.println(msg);
+        }
     }
-
-    
-
 }
